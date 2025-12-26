@@ -1,2 +1,60 @@
-# omni-profit-solana-bot
-AI-powered Solana trading bot with multi-source signals (Telegram, Discord, X), Jupiter DEX integration, and automated risk management
+# 🚀 Omni-Profit Solana Trading Bot
+
+**AI-powered memecoin trading system for Solana blockchain with multi-source signal aggregation.**
+
+## ✨ Features
+
+- **Multi-Source Signals**: Telegram, Discord, X (Twitter) monitoring
+- **AI Analysis**: Google Gemini integration for token evaluation
+- **DEX Integration**: Jupiter Aggregator for best swap prices
+- **Risk Management**: Auto stop-loss, take-profit, position sizing
+- **Real-time Data**: DexScreener API integration
+- **Secure**: Encrypted wallet management
+
+## 📁 Project Structure
+
+```
+src/
+├── core/          # Config & Logging
+├── blockchain/    # Solana RPC & Wallet
+├── trading/       # Jupiter DEX & Trade Manager
+├── signals/       # Signal Processing
+├── ai/            # AI Agent (Gemini)
+├── analysis/      # Market Data (DexScreener)
+├── social/        # Discord & X Monitors  
+└── telegram/      # Telegram Listener
+```
+
+## 🛠️ Setup
+
+### 1. Installation
+```bash
+pip install -r requirements.txt
+```
+
+### 2. Configuration
+Copy `.env.production.example` to `.env.production` and fill in your credentials:
+```bash
+WALLET_PRIVATE_KEY=<your_base58_key>
+GEMINI_API_KEY=<your_key>
+TELEGRAM_API_ID=<your_id>
+```
+
+### 3. Run
+```bash
+python main.py
+```
+
+## ⚠️ Security
+
+- Never commit `.env.production`
+- Use a separate wallet for bot trading
+- Start with small position sizes
+
+## 📊 Version
+
+v1.0.0 - Initial Release (Dec 2025)
+
+## 📄 License
+
+MIT License - see LICENSE file
