@@ -55,6 +55,15 @@ python main.py
 
 v1.0.0 - Initial Release (Dec 2025)
 
+## 🧾 Latest changes (Devnet testing & safety)
+
+- Added Devnet smoke tests and sign-only verification scripts (`scripts/devnet_e2e.py`, `scripts/sign_only_test.py`).
+- Added robust Jupiter price helper with retries and tests (`src/trading/jupiter_client.py`).
+- Added controlled Devnet transfer tool (`scripts/send_devnet_transfer.py`) — **disabled by default**; requires `ALLOW_REAL_TRANSACTIONS=true`.
+- Integrated health check and CI workflow (`scripts/health_check.py`, `.github/workflows/health_check.yml`).
+- Added notifier hooks for critical alerts (`src/monitoring/notifier.py`) and updated `PRODUCTION_CHECKLIST.md`.
+- Small compatibility patch for `httpx` / `solana` provider to avoid runtime TypeErrors on some environments.
+
 ## 📄 License
 
 MIT License - see LICENSE file

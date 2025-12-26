@@ -33,6 +33,10 @@ class Settings(BaseSettings):
     DISCORD_BOT_TOKEN: Optional[str] = None
     DISCORD_CHANNEL_IDS: Optional[str] = None
     X_BEARER_TOKEN: Optional[str] = None
+
+    # Safety & operation
+    EMERGENCY_STOP: bool = False
+    ALLOW_REAL_TRANSACTIONS: bool = False
     
     REDIS_URL: str = "redis://redis:6379"
 
