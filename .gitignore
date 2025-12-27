@@ -6,6 +6,13 @@ __pycache__/
 # C extensions
 *.so
 
+# Environment & Secrets
+.env
+.env.production
+.env.local
+*.key
+*.pem
+
 # Distribution / packaging
 .Python
 build/
