@@ -47,3 +47,25 @@ def notify_critical(text: str) -> None:
     log.error("notify_critical", text=text)
     send_telegram(text)
     send_discord(text)
+
+class Notifier:
+    """Notifier class für Trade-Benachrichtigungen."""
+    
+    async def send_trade_notification(
+        self,
+        token_name: str,
+        action: str,
+        amount_sol: float,
+        price: float,
+    ) -> bool:
+        """Send trade notification."""
+        text = f"🚀 {action} {token_name}\n"
+        text += f"Amount: {amount_sol} SOL\n"
+        text += f"Price: ${price:.6f}"
+        
+        send_telegram(text)
+        send_discord(text)
+        return True
+
+
+notifier = Notifier()

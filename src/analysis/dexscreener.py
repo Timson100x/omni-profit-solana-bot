@@ -93,3 +93,4 @@ class DexScreenerClient:
             return []
 
 dexscreener = DexScreenerClient()
+dex_analyzer = dexscreener  # Alias für Kompatibilität

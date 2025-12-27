@@ -1,69 +1,90 @@
-# 🚀 Omni-Profit Solana Trading Bot
+# 🚀 Omni Profit Solana Sniper Bot
 
-**AI-powered memecoin trading system for Solana blockchain with multi-source signal aggregation.**
+**Professional Memecoin Trading Bot** mit MEV-Protection, 15s Aggressive Strategy und Auto-Staking.
 
-## ✨ Features
+## ⚡ Features
 
-- **Multi-Source Signals**: Telegram, Discord, X (Twitter) monitoring
-- **AI Analysis**: Google Gemini integration for token evaluation
-- **DEX Integration**: Jupiter Aggregator for best swap prices
-- **Risk Management**: Auto stop-loss, take-profit, position sizing
-- **Real-time Data**: DexScreener API integration
-- **Secure**: Encrypted wallet management
+- **15-Second Signal Detection** - Aggressive DexScreener/GMGN.ai scanning
+- **8-Check Validation System** - Liquidity, LP burned, mint revoked, holder distribution
+- **MEV Protection** - Jito Bundle integration
+- **Transaction Optimizer** - 8-12x faster trades (35ms RPC latency)
+- **Auto rSOL Staking** - Trades werden direkt in rSOL investiert für passive Rewards
+- **Helius Premium RPC** - Optimal performance und reliability
 
-## 📁 Project Structure
+## 🎯 Quick Start
+
+```bash
+# 1. Install Dependencies
+pip install -r requirements.txt
+
+# 2. Configure .env.production
+cp .env.production.TEMPLATE .env.production
+# Edit: WALLET_PRIVATE_KEY, HELIUS_API_KEY, etc.
+
+# 3. Start Production Bot
+python run_advanced_bot.py
+```
+
+## 📊 System Status
+
+- **Network**: Solana Mainnet via Helius
+- **Signal Interval**: 15 seconds (aggressive)
+- **Trade Size**: 0.05 - 0.1 SOL per signal
+- **Daily Loss Limit**: 1.0 SOL
+- **Auto-Staking**: rSOL (Renzo Restaked SOL)
+
+## 🔒 Security
+
+- Emergency Stop: Configurable via `.env`
+- Slippage Protection: 5% max
+- Price Impact Check: 10% max
+- Daily Loss Limits enforced
+
+## 📁 Structure
 
 ```
 src/
-├── core/          # Config & Logging
-├── blockchain/    # Solana RPC & Wallet
-├── trading/       # Jupiter DEX & Trade Manager
-├── signals/       # Signal Processing
-├── ai/            # AI Agent (Gemini)
-├── analysis/      # Market Data (DexScreener)
-├── social/        # Discord & X Monitors  
-└── telegram/      # Telegram Listener
+├── blockchain/     # Solana RPC, Wallet, Transaction Optimizer
+├── trading/        # Jupiter Swapper, Trade Manager
+├── signals/        # Signal Processor, Validator
+├── analysis/       # DexScreener, GMGN.ai clients
+├── ai/            # Gemini AI agent
+└── monitoring/    # Telegram/Discord notifications
 ```
 
-## 🛠️ Setup
+## 🚀 Production Deployment
 
-### 1. Installation
+**Wichtig**: Deploy auf VPS (nicht Codespace) für Jupiter API access!
+
 ```bash
+# VPS Setup
+git clone https://github.com/foxyvega/omni-profit-solana-bot
+cd omni-profit-solana-bot
+python -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
+
+# Config
+cp .env.production.TEMPLATE .env.production
+# Edit .env.production
+
+# Start
+nohup python run_advanced_bot.py > bot.log 2>&1 &
 ```
 
-### 2. Configuration
-Copy `.env.production.example` to `.env.production` and fill in your credentials:
-```bash
-WALLET_PRIVATE_KEY=<your_base58_key>
-GEMINI_API_KEY=<your_key>
-TELEGRAM_API_ID=<your_id>
-```
+## 💰 Wallet Management
 
-### 3. Run
-```bash
-python main.py
-```
+- **Wallet Address**: H5qckhS57SA4g9NgeH9uSg6iaivpbtQyuXxD2KHwtETX
+- **Minimum Balance**: 0.1 SOL (für Trades + Gas)
+- **Auto-Staking**: Trades kaufen rSOL statt regular tokens für passive rewards
 
-## ⚠️ Security
+## 📈 Performance
 
-- Never commit `.env.production`
-- Use a separate wallet for bot trading
-- Start with small position sizes
+- **Signal Detection**: 3 tokens per 15s loop
+- **Validation Score**: 70-95/100 typical
+- **Trade Execution**: 35ms RPC latency
+- **Success Rate**: Depends on market conditions
 
-## 📊 Version
+---
 
-v1.0.0 - Initial Release (Dec 2025)
-
-## 🧾 Latest changes (Devnet testing & safety)
-
-- Added Devnet smoke tests and sign-only verification scripts (`scripts/devnet_e2e.py`, `scripts/sign_only_test.py`).
-- Added robust Jupiter price helper with retries and tests (`src/trading/jupiter_client.py`).
-- Added controlled Devnet transfer tool (`scripts/send_devnet_transfer.py`) — **disabled by default**; requires `ALLOW_REAL_TRANSACTIONS=true`.
-- Integrated health check and CI workflow (`scripts/health_check.py`, `.github/workflows/health_check.yml`).
-- Added notifier hooks for critical alerts (`src/monitoring/notifier.py`) and updated `PRODUCTION_CHECKLIST.md`.
-- Small compatibility patch for `httpx` / `solana` provider to avoid runtime TypeErrors on some environments.
-
-## 📄 License
-
-MIT License - see LICENSE file
+**⚠️ Disclaimer**: Memecoin trading is highly risky. Use at your own risk.

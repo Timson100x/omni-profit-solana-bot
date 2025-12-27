@@ -20,7 +20,8 @@ class AIAgent:
         if GEMINI_AVAILABLE and settings.GEMINI_API_KEY:
             try:
                 genai.configure(api_key=settings.GEMINI_API_KEY)
-                self.model = genai.GenerativeModel('gemini-pro')
+                # Use gemini-1.5-flash instead of deprecated gemini-pro
+                self.model = genai.GenerativeModel('gemini-1.5-flash')
                 self.enabled = True
                 self._logger.info("✅ Gemini AI initialized")
             except Exception as e:
@@ -30,15 +31,19 @@ class AIAgent:
                                has_key=bool(settings.GEMINI_API_KEY),
                                installed=GEMINI_AVAILABLE)
     
-    async def analyze_token(self, token_data: Dict) -> Dict:
+    async def analyze_token(self, 
+                          token_address: str,
+                          token_name: str,
+                          market_data: Dict,
+                          signal_confidence: float) -> Dict:
         """Analyze token and return trading decision"""
         
         if not self.enabled:
             # Fallback: Simple heuristic analysis
-            return await self._fallback_analysis(token_data)
+            return await self._fallback_analysis(market_data)
         
         try:
-            prompt = self._build_analysis_prompt(token_data)
+            prompt = self._build_analysis_prompt(market_data)
             
             # Run in executor to avoid blocking
             loop = asyncio.get_event_loop()
@@ -47,11 +52,11 @@ class AIAgent:
                 lambda: self.model.generate_content(prompt)
             )
             
-            return self._parse_response(response.text, token_data)
+            return self._parse_response(response.text, market_data)
             
         except Exception as e:
             self._logger.error("ai_analysis_failed", error=str(e))
-            return await self._fallback_analysis(token_data)
+            return await self._fallback_analysis(market_data)
     
     def _build_analysis_prompt(self, token_data: Dict) -> str:
         """Build analysis prompt for Gemini"""

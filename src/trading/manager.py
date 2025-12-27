@@ -65,23 +65,40 @@ class TradeManager:
                          confidence=confidence)
         
         try:
-            # TODO: Implement actual Jupiter swap
-            # For now, create position tracking
+            # ⚡ AUTO-STAKING AKTIVIERT: Kaufe rSOL statt Token
+            # rSOL = Renzo Restaked SOL mit passiven Rewards
+            from src.trading.simple_swapper import jupiter_swapper
+            
+            RSOL_MINT = "rSoLp6i6TpbAFac57RRBBB8fGMsKJFE2yqpvUYiHvTs"  # Renzo rSOL
+            
+            # SOL -> rSOL swap (statt Token)
+            success = await jupiter_swapper.swap_sol_to_token(
+                token_address=RSOL_MINT,  # Kaufe rSOL
+                amount_sol=trade_size,
+                slippage_bps=int(settings.SLIPPAGE_TOLERANCE * 10000),
+            )
+            
+            if not success:
+                self._logger.error("rsol_swap_failed", amount_sol=trade_size)
+                return False
+            
+            # Create position tracking (rSOL statt Token)
             position = Position(
-                token_address=token_data['address'],
-                token_name=token_data['name'],
+                token_address=RSOL_MINT,
+                token_name=f"rSOL (from {token_data['name'][:20]})",
                 entry_price=token_data['price_usd'],
                 amount_sol=trade_size,
                 target_multiplier=analysis.get('target_multiplier', 2.0),
-                stop_loss_pct=settings.STOP_LOSS_PCT,
+                stop_loss_pct=0.30,
                 entry_time=datetime.now()
             )
             
             self.positions.append(position)
             self.trades_today += 1
             
-            self._logger.info("✅ trade_executed",
-                            token=token_data['name'],
+            self._logger.info("✅ rsol_staked",
+                            signal=token_data['name'][:20],
+                            amount_sol=trade_size,
                             position_count=len(self.positions))
             
             return True
@@ -123,15 +140,77 @@ class TradeManager:
         if not self.positions:
             return
         
-        self._logger.info("monitoring_positions", count=len(self.positions))
+        open_positions = [p for p in self.positions if p.status == "open"]
+        if not open_positions:
+            return
         
-        # TODO: Implement actual price monitoring and exit logic
-        # For now, just log position status
-        for position in self.positions:
-            if position.status == "open":
-                self._logger.debug("position_open",
+        self._logger.info("monitoring_positions", count=len(open_positions))
+        
+        # Check each position for exit conditions
+        from src.analysis.dexscreener import dexscreener
+        
+        for position in open_positions:
+            try:
+                # Get current price
+                token_data = await dexscreener.get_token_data(position.token_address)
+                
+                if not token_data:
+                    continue
+                
+                current_price = token_data['price_usd']
+                price_change = (current_price - position.entry_price) / position.entry_price
+                
+                self._logger.debug("position_check",
                                  token=position.token_name,
-                                 age_seconds=(datetime.now() - position.entry_time).seconds)
+                                 entry_price=position.entry_price,
+                                 current_price=current_price,
+                                 change_pct=f"{price_change*100:.1f}%")
+                
+                # Take Profit: Reached target multiplier
+                if current_price >= position.entry_price * position.target_multiplier:
+                    self._logger.info("🎯 take_profit_triggered",
+                                    token=position.token_name,
+                                    profit_pct=f"{price_change*100:.1f}%")
+                    await self._exit_position(position, "take_profit", current_price)
+                
+                # Stop Loss: Down 30%
+                elif price_change <= -position.stop_loss_pct:
+                    self._logger.warning("🛑 stop_loss_triggered",
+                                       token=position.token_name,
+                                       loss_pct=f"{price_change*100:.1f}%")
+                    await self._exit_position(position, "stop_loss", current_price)
+                    
+            except Exception as e:
+                self._logger.error("position_monitoring_error",
+                                 token=position.token_name,
+                                 error=str(e))
+    
+    async def _exit_position(self, position: Position, reason: str, exit_price: float):
+        """Exit a position (sell tokens)"""
+        try:
+            # Calculate P&L
+            price_change = (exit_price - position.entry_price) / position.entry_price
+            pnl_sol = position.amount_sol * price_change
+            
+            if reason == "stop_loss":
+                self.daily_loss_sol += abs(pnl_sol)
+            
+            # Update position
+            position.status = "closed"
+            
+            self._logger.info("position_closed",
+                            token=position.token_name,
+                            reason=reason,
+                            pnl_sol=f"{pnl_sol:.4f}",
+                            pnl_pct=f"{price_change*100:.1f}%")
+            
+            # In real implementation: Execute Jupiter sell swap here
+            # For now, just track the closure
+            
+        except Exception as e:
+            self._logger.error("exit_position_failed",
+                             token=position.token_name,
+                             error=str(e))
     
     def get_position_summary(self) -> Dict:
         """Get summary of all positions"""

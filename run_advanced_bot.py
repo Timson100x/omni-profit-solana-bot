@@ -120,17 +120,28 @@ async def run_trading_loop():
                         continue
                     
                     print(f"   💰 Price: ${token_data['price_usd']:.6f}")
-                    print(f"   💧 Liquidity: ${token_data.get('liquidity_usd', 0):,.0f}")
+                    liquidity = token_data.get('liquidity_usd', token_data.get('liquidity', 0))
+                    print(f"   💧 Liquidity: ${liquidity:,.0f}")
                     
-                    # 4. AI Analysis
-                    analysis = await ai_agent.analyze_token(
-                        token_address=signal.token_address,
-                        token_name=signal.token_name,
-                        market_data=token_data,
-                        signal_confidence=signal.confidence,
-                    )
+                    # 4. Simple Decision (Skip AI - too slow)
+                    # Use validation score + basic heuristics
+                    score = validation.score
                     
-                    print(f"   🤖 AI Score: {analysis.get('score', 0)}/100")
+                    # Boost score for good metrics
+                    if liquidity > 50000:
+                        score += 10
+                    if token_data.get('volume_24h', 0) > 10000:
+                        score += 5
+                    
+                    analysis = {
+                        'score': min(100, score),
+                        'confidence': validation.score / 100,
+                        'reason': f'Validation {validation.score}/100',
+                        'risk': 'MEDIUM',
+                        'target_multiplier': 2.5,
+                    }
+                    
+                    print(f"   🎯 Decision Score: {analysis['score']}/100")
                     
                     if analysis.get('score', 0) < 70:
                         print(f"   ❌ AI rejected")
@@ -157,9 +168,9 @@ async def run_trading_loop():
             # 6. Monitor positions
             await trade_manager.monitor_positions()
             
-            # Sleep
-            print(f"\n💤 Sleeping 60s... (Loop #{loop_count})")
-            await asyncio.sleep(60)
+            # Sleep - Aggressive Strategy (15s)
+            print(f"\n💤 Sleeping 15s... (Loop #{loop_count})")
+            await asyncio.sleep(15)
         
         except KeyboardInterrupt:
             log.info("trading_loop_interrupted")
