@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     SOLANA_WS_URL: str = os.getenv("SOLANA_WS_URL", "wss://api.mainnet-beta.solana.com")
     COMMITMENT: str = "confirmed"
     
-    WALLET_PRIVATE_KEY: str
+    WALLET_PRIVATE_KEY: Optional[str] = None
     WALLET_ENCRYPTED: bool = False
     
     MAX_TRADE_SIZE_SOL: float = 0.1
@@ -21,10 +21,10 @@ class Settings(BaseSettings):
     TAKE_PROFIT_MULTIPLIER: float = 2.0
     STOP_LOSS_PCT: float = 0.30
     
-    TELEGRAM_API_ID: str
-    TELEGRAM_API_HASH: str
-    TELEGRAM_PHONE: str
-    TELEGRAM_CHANNEL_ID: str
+    TELEGRAM_API_ID: Optional[str] = None
+    TELEGRAM_API_HASH: Optional[str] = None
+    TELEGRAM_PHONE: Optional[str] = None
+    TELEGRAM_CHANNEL_ID: Optional[str] = None
     
     GEMINI_API_KEY: Optional[str] = None
     OPENAI_API_KEY: Optional[str] = None

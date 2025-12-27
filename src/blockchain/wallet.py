@@ -25,3 +25,22 @@ class WalletManager:
         return str(self.keypair.pubkey())
 
 wallet_manager = WalletManager()
+
+
+def get_wallet(private_key: str = None) -> Keypair:
+    """Get wallet keypair from private key or settings.
+    
+    Args:
+        private_key: Optional base58 encoded private key
+    
+    Returns:
+        Keypair instance
+    """
+    if private_key is None:
+        private_key = settings.WALLET_PRIVATE_KEY
+    
+    if not private_key:
+        raise ValueError("No wallet private key provided")
+    
+    secret_key = base58.b58decode(private_key)
+    return Keypair.from_bytes(secret_key)
