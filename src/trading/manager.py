@@ -65,36 +65,38 @@ class TradeManager:
                          confidence=confidence)
         
         try:
-            # ⚡ AUTO-STAKING AKTIVIERT: Kaufe rSOL statt Token
-            # rSOL = Renzo Restaked SOL mit passiven Rewards
+            # 🚀 LIVE MEMECOIN TRADING - Kaufe echte Tokens
             from src.trading.simple_swapper import jupiter_swapper
             
-            RSOL_MINT = "rSoLp6i6TpbAFac57RRBBB8fGMsKJFE2yqpvUYiHvTs"  # Renzo rSOL
-            
-            # SOL -> rSOL swap (statt Token)
+            # SOL -> Memecoin Token swap
             success = await jupiter_swapper.swap_sol_to_token(
-                token_address=RSOL_MINT,  # Kaufe rSOL
+                token_address=token_data['address'],
                 amount_sol=trade_size,
                 slippage_bps=int(settings.SLIPPAGE_TOLERANCE * 10000),
             )
             
             if not success:
-                self._logger.error("rsol_swap_failed", amount_sol=trade_size)
+                self._logger.error("memecoin_swap_failed", token=token_data['name'])
                 return False
             
-            # Create position tracking (rSOL statt Token)
+            # Create position tracking for AUTO-SELL
             position = Position(
-                token_address=RSOL_MINT,
-                token_name=f"rSOL (from {token_data['name'][:20]})",
+                token_address=token_data['address'],
+                token_name=token_data['name'],
                 entry_price=token_data['price_usd'],
                 amount_sol=trade_size,
                 target_multiplier=analysis.get('target_multiplier', 2.0),
-                stop_loss_pct=0.30,
+                stop_loss_pct=0.30,  # Auto-sell bei -30%
                 entry_time=datetime.now()
             )
             
             self.positions.append(position)
             self.trades_today += 1
+            
+            self._logger.info("✅ memecoin_bought",
+                            token=token_data['name'],
+                            amount_sol=trade_size,
+                            position_count=len(self.positions))
             
             self._logger.info("✅ rsol_staked",
                             signal=token_data['name'][:20],
@@ -186,7 +188,7 @@ class TradeManager:
                                  error=str(e))
     
     async def _exit_position(self, position: Position, reason: str, exit_price: float):
-        """Exit a position (sell tokens)"""
+        """Exit a position (sell tokens) - AUTO SELL"""
         try:
             # Calculate P&L
             price_change = (exit_price - position.entry_price) / position.entry_price
@@ -195,17 +197,31 @@ class TradeManager:
             if reason == "stop_loss":
                 self.daily_loss_sol += abs(pnl_sol)
             
+            # 🚀 EXECUTE SELL via Jupiter
+            from src.trading.simple_swapper import jupiter_swapper
+            
+            # Token -> SOL swap (estimate token amount)
+            token_amount_estimate = int(position.amount_sol * 1e9)  # Rough estimate
+            
+            sell_success = await jupiter_swapper.swap_token_to_sol(
+                token_address=position.token_address,
+                token_amount=token_amount_estimate,
+                slippage_bps=1000,  # 10% for exit
+            )
+            
+            if sell_success:
+                self._logger.info("💰 position_sold",
+                                token=position.token_name,
+                                reason=reason,
+                                pnl_sol=f"{pnl_sol:.4f}",
+                                pnl_pct=f"{price_change*100:.1f}%")
+            else:
+                self._logger.error("sell_failed_keeping_position",
+                                 token=position.token_name)
+                return
+            
             # Update position
             position.status = "closed"
-            
-            self._logger.info("position_closed",
-                            token=position.token_name,
-                            reason=reason,
-                            pnl_sol=f"{pnl_sol:.4f}",
-                            pnl_pct=f"{price_change*100:.1f}%")
-            
-            # In real implementation: Execute Jupiter sell swap here
-            # For now, just track the closure
             
         except Exception as e:
             self._logger.error("exit_position_failed",

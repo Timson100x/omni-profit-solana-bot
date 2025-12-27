@@ -150,11 +150,37 @@ class JupiterSwapper:
         token_address: str,
         amount_sol: float
     ) -> bool:
-        """Simuliere Swap wenn Jupiter nicht verfügbar.
+        """Simuliere/Execute Swap wenn Jupiter nicht verfügbar.
         
-        Im Codespace kann Jupiter API blockiert sein.
-        Simulation ermöglicht Bot-Tests ohne echte Trades.
+        1. Versuche Raydium DEX direkt
+        2. Falls auch nicht verfügbar: Simulation
         """
+        # PRODUCTION MODE: Versuche Raydium als Fallback
+        if settings.ALLOW_REAL_TRANSACTIONS:
+            try:
+                from src.trading.raydium_swapper import raydium_swapper
+                
+                self._logger.info("🔄 trying_raydium_fallback",
+                                token=token_address[:8],
+                                amount_sol=amount_sol)
+                
+                success = await raydium_swapper.swap_sol_to_token(
+                    token_address=token_address,
+                    amount_sol=amount_sol,
+                    slippage_bps=500
+                )
+                
+                if success:
+                    self._logger.info("✅ raydium_swap_success",
+                                    token=token_address[:8])
+                    return True
+                else:
+                    self._logger.warning("raydium_also_failed")
+                    
+            except Exception as e:
+                self._logger.error("raydium_error", error=str(e)[:50])
+        
+        # SIMULATION MODE oder alle Swaps fehlgeschlagen
         if not settings.ALLOW_REAL_TRANSACTIONS:
             # Simulation Mode aktiv
             self._logger.info(
@@ -165,12 +191,12 @@ class JupiterSwapper:
             )
             return True
         else:
-            # Production Mode aber Jupiter nicht verfügbar
+            # Production Mode aber alle DEX failed
             self._logger.error(
-                "❌ swap_failed_jupiter_required",
+                "❌ swap_failed_no_dex_available",
                 token=token_address[:8],
                 amount_sol=amount_sol,
-                hint="Deploy to VPS for Jupiter access"
+                hint="Deploy to VPS or check network"
             )
             return False
     
