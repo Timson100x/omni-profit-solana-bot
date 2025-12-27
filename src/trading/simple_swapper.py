@@ -150,12 +150,38 @@ class JupiterSwapper:
         token_address: str,
         amount_sol: float
     ) -> bool:
-        """Simuliere/Execute Swap wenn Jupiter nicht verfügbar.
+        """Execute/Simuliere Swap mit mehreren Fallback-Methoden.
         
-        1. Versuche Raydium DEX direkt
-        2. Falls auch nicht verfügbar: Simulation
+        Priority:
+        1. On-Chain Swapper (funktioniert in Codespace!)
+        2. Raydium DEX API
+        3. Simulation Mode
         """
-        # PRODUCTION MODE: Versuche Raydium als Fallback
+        # PRIORITY #1: On-Chain Swapper (nutzt nur Helius RPC)
+        try:
+            from src.trading.onchain_swapper import onchain_swapper
+            
+            self._logger.info("🔗 trying_onchain_swapper",
+                            token=token_address[:8],
+                            amount_sol=amount_sol)
+            
+            success = await onchain_swapper.swap_sol_to_token(
+                token_address=token_address,
+                amount_sol=amount_sol,
+                slippage_bps=500
+            )
+            
+            if success:
+                self._logger.info("✅ onchain_swap_success",
+                                token=token_address[:8])
+                return True
+            else:
+                self._logger.warning("onchain_swap_failed")
+                
+        except Exception as e:
+            self._logger.error("onchain_swapper_error", error=str(e)[:50])
+        
+        # PRIORITY #2: Raydium Fallback
         if settings.ALLOW_REAL_TRANSACTIONS:
             try:
                 from src.trading.raydium_swapper import raydium_swapper
@@ -180,7 +206,7 @@ class JupiterSwapper:
             except Exception as e:
                 self._logger.error("raydium_error", error=str(e)[:50])
         
-        # SIMULATION MODE oder alle Swaps fehlgeschlagen
+        # PRIORITY #3: Simulation Mode
         if not settings.ALLOW_REAL_TRANSACTIONS:
             # Simulation Mode aktiv
             self._logger.info(
@@ -191,12 +217,12 @@ class JupiterSwapper:
             )
             return True
         else:
-            # Production Mode aber alle DEX failed
+            # Production Mode aber alle Swaps fehlgeschlagen
             self._logger.error(
-                "❌ swap_failed_no_dex_available",
+                "❌ swap_failed_all_methods",
                 token=token_address[:8],
                 amount_sol=amount_sol,
-                hint="Deploy to VPS or check network"
+                hint="Check Helius RPC or deploy to VPS"
             )
             return False
     
