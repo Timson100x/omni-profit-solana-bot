@@ -4,10 +4,14 @@ Vereinfachte Version ohne komplexe Staking-Logik.
 """
 
 import asyncio
+import base64
 from typing import Optional
 import aiohttp
 from src.core.logger import log
 from src.core.config import settings
+from src.blockchain.wallet import wallet_manager
+from src.blockchain.client import solana_client
+from solders.transaction import VersionedTransaction
 
 
 class JupiterSwapper:
@@ -127,11 +131,69 @@ class JupiterSwapper:
                     self._logger.warning("price_impact_too_high", impact=price_impact)
                     return False
                 
-                # 2. Swap Transaction (simplified for now)
-                self._logger.info("✅ swap_executed",
-                                token=token_address,
-                                amount_sol=amount_sol)
-                
+                # 2. In Simulation nur loggen
+                if not settings.ALLOW_REAL_TRANSACTIONS:
+                    self._logger.info("📊 swap_simulated",
+                                    token=token_address,
+                                    amount_sol=amount_sol,
+                                    reason="simulation_mode")
+                    return True
+
+                # 3. Real Swap: Build swap tx via Jupiter + sign + send
+                wallet_manager.load_wallet()
+                keypair = wallet_manager.get_keypair()
+                user_pubkey = str(keypair.pubkey())
+
+                swap_url = f"{self.active_endpoint}/swap"
+                payload = {
+                    "quoteResponse": quote,
+                    "userPublicKey": user_pubkey,
+                    "wrapAndUnwrapSol": True,
+                    # keep conservative defaults
+                    "asLegacyTransaction": False,
+                }
+
+                async with self.session.post(swap_url, json=payload) as resp:
+                    if resp.status != 200:
+                        error_msg = await resp.text()
+                        self._logger.error("jupiter_swap_failed", status=resp.status, error=error_msg[:200])
+                        return False
+
+                    swap_data = await resp.json()
+                    swap_tx_b64 = swap_data.get("swapTransaction")
+
+                if not swap_tx_b64:
+                    self._logger.error("jupiter_swap_missing_transaction")
+                    return False
+
+                raw_tx = base64.b64decode(swap_tx_b64)
+                vtx = VersionedTransaction.from_bytes(raw_tx)
+
+                sig = keypair.sign_message(bytes(vtx.message))
+                sigs = list(vtx.signatures)
+                if not sigs:
+                    # Jupiter should provide signature slots, but be defensive
+                    sigs = [sig]
+                else:
+                    sigs[0] = sig
+
+                signed = VersionedTransaction.populate(vtx.message, sigs)
+
+                await solana_client.connect()
+                send_resp = await solana_client.client.send_raw_transaction(
+                    bytes(signed),
+                    opts={
+                        "skip_preflight": True,
+                        "preflight_commitment": "confirmed",
+                    },
+                )
+
+                self._logger.info(
+                    "✅ swap_sent",
+                    token=token_address,
+                    amount_sol=amount_sol,
+                    signature=str(send_resp.value)[:16] if getattr(send_resp, "value", None) else None,
+                )
                 return True
                 
         except asyncio.TimeoutError:
@@ -248,7 +310,7 @@ class JupiterSwapper:
             sol_mint = "So11111111111111111111111111111111111111112"
             
             # Get Quote
-            url = f"{self.jupiter_api}/quote"
+            url = f"{self.active_endpoint}/quote"
             params = {
                 "inputMint": token_address,
                 "outputMint": sol_mint,
@@ -263,12 +325,68 @@ class JupiterSwapper:
                 
                 quote = await resp.json()
                 out_sol = int(quote.get("outAmount", 0)) / 1e9
-                
-                self._logger.info("✅ sell_simulated",
-                                token=token_address,
-                                output_sol=out_sol)
-                
-                # TODO: Implement actual sell transaction
+
+                if not settings.ALLOW_REAL_TRANSACTIONS:
+                    self._logger.info(
+                        "📊 sell_simulated",
+                        token=token_address,
+                        output_sol=out_sol,
+                        reason="simulation_mode",
+                    )
+                    return True
+
+                wallet_manager.load_wallet()
+                keypair = wallet_manager.get_keypair()
+                user_pubkey = str(keypair.pubkey())
+
+                swap_url = f"{self.active_endpoint}/swap"
+                payload = {
+                    "quoteResponse": quote,
+                    "userPublicKey": user_pubkey,
+                    "wrapAndUnwrapSol": True,
+                    "asLegacyTransaction": False,
+                }
+
+                async with self.session.post(swap_url, json=payload) as resp:
+                    if resp.status != 200:
+                        error_msg = await resp.text()
+                        self._logger.error("jupiter_sell_swap_failed", status=resp.status, error=error_msg[:200])
+                        return False
+
+                    swap_data = await resp.json()
+                    swap_tx_b64 = swap_data.get("swapTransaction")
+
+                if not swap_tx_b64:
+                    self._logger.error("jupiter_sell_missing_transaction")
+                    return False
+
+                raw_tx = base64.b64decode(swap_tx_b64)
+                vtx = VersionedTransaction.from_bytes(raw_tx)
+
+                sig = keypair.sign_message(bytes(vtx.message))
+                sigs = list(vtx.signatures)
+                if not sigs:
+                    sigs = [sig]
+                else:
+                    sigs[0] = sig
+
+                signed = VersionedTransaction.populate(vtx.message, sigs)
+
+                await solana_client.connect()
+                send_resp = await solana_client.client.send_raw_transaction(
+                    bytes(signed),
+                    opts={
+                        "skip_preflight": True,
+                        "preflight_commitment": "confirmed",
+                    },
+                )
+
+                self._logger.info(
+                    "✅ sell_sent",
+                    token=token_address,
+                    output_sol=out_sol,
+                    signature=str(send_resp.value)[:16] if getattr(send_resp, "value", None) else None,
+                )
                 return True
                 
         except Exception as e:

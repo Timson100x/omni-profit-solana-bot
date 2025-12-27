@@ -67,8 +67,7 @@ async def initialize_components():
         # Get balance
         from src.blockchain.client import solana_client
         try:
-            balance_lamports = await solana_client.get_balance()
-            balance_sol = balance_lamports / 1e9
+            balance_sol = await solana_client.get_balance(pubkey)
             print(f"💵 Balance: {balance_sol:.6f} SOL")
         except:
             print(f"💵 Balance: Unable to fetch")

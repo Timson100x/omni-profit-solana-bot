@@ -35,6 +35,33 @@ class TradeManager:
             compute_units=200_000
         )
         self._logger.info("trade_manager_initialized", mev_protection=True)
+
+    async def _calculate_trade_size(self, confidence: float) -> float:
+        """Calculate trade size.
+
+        If `settings.TRADE_BALANCE_FRACTION` is set, use wallet balance sizing
+        ("reinvest"), keeping `settings.MIN_SOL_RESERVE` aside for fees.
+        Otherwise fall back to the legacy MIN/MAX sizing.
+        """
+        fraction = getattr(settings, "TRADE_BALANCE_FRACTION", None)
+        if fraction is None:
+            return settings.MIN_TRADE_SIZE_SOL + (
+                (settings.MAX_TRADE_SIZE_SOL - settings.MIN_TRADE_SIZE_SOL) * confidence
+            )
+
+        try:
+            pubkey = wallet_manager.get_public_key()
+            balance = await solana_client.get_balance(pubkey)
+        except Exception:
+            balance = 0.0
+
+        reserve = float(getattr(settings, "MIN_SOL_RESERVE", 0.02) or 0.0)
+        committed = sum(
+            p.amount_sol for p in self.positions if p.status == "open"
+        )
+        available = max(0.0, balance - reserve - committed)
+        trade_size = max(0.0, available * float(fraction))
+        return trade_size
         
     async def execute_trade(self, token_data: Dict, analysis: Dict) -> bool:
         """Execute a buy trade"""
@@ -55,9 +82,15 @@ class TradeManager:
         
         # Determine trade size based on confidence
         confidence = analysis.get('confidence', 0.5)
-        trade_size = settings.MIN_TRADE_SIZE_SOL + (
-            (settings.MAX_TRADE_SIZE_SOL - settings.MIN_TRADE_SIZE_SOL) * confidence
-        )
+        trade_size = await self._calculate_trade_size(confidence)
+
+        if trade_size <= 0:
+            self._logger.warning(
+                "trade_size_too_small",
+                token=token_data.get('name'),
+                confidence=confidence,
+            )
+            return False
         
         self._logger.info("executing_trade",
                          token=token_data['name'],
@@ -112,9 +145,15 @@ class TradeManager:
     async def _simulate_trade(self, token_data: Dict, analysis: Dict) -> bool:
         """Simulate trade execution"""
         confidence = analysis.get('confidence', 0.5)
-        trade_size = settings.MIN_TRADE_SIZE_SOL + (
-            (settings.MAX_TRADE_SIZE_SOL - settings.MIN_TRADE_SIZE_SOL) * confidence
-        )
+        trade_size = await self._calculate_trade_size(confidence)
+
+        if trade_size <= 0:
+            self._logger.warning(
+                "trade_size_too_small",
+                token=token_data.get('name'),
+                confidence=confidence,
+            )
+            return False
         
         self._logger.info("📊 trade_simulated",
                          token=token_data['name'],

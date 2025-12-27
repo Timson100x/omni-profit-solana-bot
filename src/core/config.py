@@ -20,6 +20,13 @@ class Settings(BaseSettings):
     SLIPPAGE_TOLERANCE: float = 0.05
     TAKE_PROFIT_MULTIPLIER: float = 2.0
     STOP_LOSS_PCT: float = 0.30
+
+    # Position sizing
+    # Use this fraction of available SOL (after reserve) per trade.
+    # Set to 1.0 for 100% reinvest.
+    TRADE_BALANCE_FRACTION: float = 1.0
+    # Keep a small SOL buffer to avoid "insufficient funds" due to fees/rent.
+    MIN_SOL_RESERVE: float = 0.02
     
     TELEGRAM_API_ID: Optional[str] = None
     TELEGRAM_API_HASH: Optional[str] = None
